@@ -62,8 +62,8 @@ async function ensurePlayer(interaction, channel) {
       volume: 80,
     });
 
-  if (player.voiceChannelId !== channel.id) {
-    player.voiceChannelId = channel.id;
+  if (player.voiceChannelId && player.voiceChannelId !== channel.id) {
+    throw new Error("Bot şu anda başka bir ses kanalında kullanılıyor.");
   }
   if (!player.connected) await player.connect();
   return player;
@@ -205,3 +205,4 @@ process.on("SIGINT", () => client.destroy());
 process.on("SIGTERM", () => client.destroy());
 
 await client.login(config.token);
+
