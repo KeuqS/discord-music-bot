@@ -79,7 +79,6 @@ async function ensurePlayer(interaction, channel) {
   if (player.voiceChannelId && player.voiceChannelId !== channel.id) {
     throw new Error("Bot şu anda başka bir ses kanalında kullanılıyor.");
   }
-  if (!player.connected) await player.connect();
   return player;
 }
 
@@ -118,8 +117,6 @@ async function playFromDashboard(guild, body) {
     throw new Error("Bot şu anda başka bir ses kanalında kullanılıyor.");
   }
   if (player.textChannelId !== textChannel.id) player.textChannelId = textChannel.id;
-  if (!player.connected) await player.connect();
-
   const isUrl = /^https?:\/\//i.test(query);
   const result = await player.search(
     isUrl ? { query } : { query, source: config.lavalink.searchPlatform },
@@ -130,6 +127,7 @@ async function playFromDashboard(guild, body) {
   const tracks = result.loadType === "playlist" ? result.tracks : [result.tracks[0]];
   for (const track of tracks) player.queue.add(track);
   const wasPlaying = Boolean(player.queue.current && (player.playing || player.paused));
+  if (!player.connected) await player.connect();
   if (!wasPlaying) await player.play();
   return { message: wasPlaying ? "Kuyruğa eklendi." : "Oynatılıyor.", title: tracks[0].info?.title };
 }
@@ -190,6 +188,7 @@ async function handlePlay(interaction) {
   for (const track of tracks) player.queue.add(track);
 
   const wasPlaying = Boolean(player.queue.current && (player.playing || player.paused));
+  if (!player.connected) await player.connect();
   if (!wasPlaying) await player.play();
 
   const first = tracks[0];
