@@ -149,6 +149,22 @@ async function actionFromDashboard(guild, body) {
   else if (action === "resume") await player.pause(false);
   else if (action === "skip") await player.skip();
   else if (action === "stop") await player.destroy();
+  else if (action === "remove") {
+    const index = Number(body.index);
+    if (!Number.isInteger(index) || index < 0 || index >= player.queue.tracks.length) throw new Error("Geçersiz kuyruk sırası.");
+    await player.queue.remove(index);
+  } else if (action === "move") {
+    const from = Number(body.from);
+    const to = Number(body.to);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < 0 || from >= player.queue.tracks.length || to >= player.queue.tracks.length) {
+      throw new Error("Geçersiz kuyruk sırası.");
+    }
+    const [track] = player.queue.tracks.slice(from, from + 1);
+    await player.queue.splice(from, 1);
+    await player.queue.add(track, to);
+  } else if (action === "clear") {
+    await player.queue.splice(0, player.queue.tracks.length);
+  }
   else throw new Error("Geçersiz oynatma işlemi.");
   return { message: "İşlem uygulandı." };
 }
@@ -260,7 +276,7 @@ client.once("ready", () => {
       getPlayer,
       play: playFromDashboard,
       action: actionFromDashboard,
-    });
+    }).catch((error) => console.error("Dashboard failed to start:", error));
   } else {
     console.warn("Dashboard disabled: set DASHBOARD_PASSWORD to enable it.");
   }

@@ -38,5 +38,7 @@ export const config = {
     port: dashboardPort,
     user: process.env.DASHBOARD_USER ?? "admin",
     password: process.env.DASHBOARD_PASSWORD?.trim() ?? "",
+    usersFile: process.env.DASHBOARD_USERS_FILE ?? "data/users.json",
+    sessionTtlMs: 24 * 60 * 60 * 1000,
   },
 };

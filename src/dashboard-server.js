@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
+import { createUserManager, userApi } from "./dashboard-users.js";
 
 const webRoot = join(fileURLToPath(new URL(".", import.meta.url)), "..", "web");
 const sessions = new Map();
@@ -43,10 +44,16 @@ function safeEqual(left, right) {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
-function authSession(request) {
+function authSession(request, config, manager) {
   const header = request.headers.authorization ?? "";
   if (!header.startsWith("Bearer ")) return null;
-  return sessions.get(header.slice(7)) ?? null;
+  const token = header.slice(7);
+  const session = sessions.get(token);
+  if (!session || Date.now() - session.createdAt > config.dashboard.sessionTtlMs) {
+    sessions.delete(token);
+    return null;
+  }
+  return manager.findById(session.userId) ?? null;
 }
 
 function stateForPlayer(player) {
@@ -68,10 +75,13 @@ function stateForPlayer(player) {
           length: current.info?.length ?? 0,
         }
       : null,
-    queue: tracks.slice(0, 25).map((track) => ({
+    queue: tracks.slice(0, 100).map((track, index) => ({
+      index,
       title: track.info?.title ?? "Bilinmeyen parça",
       author: track.info?.author ?? "",
       length: track.info?.length ?? 0,
+      uri: track.info?.uri ?? "",
+      source: track.info?.sourceName ?? "",
     })),
   };
 }
@@ -92,7 +102,8 @@ async function serveStatic(request, response, pathname) {
   }
 }
 
-export function startDashboard({ client, config, getPlayer, play, action }) {
+export async function startDashboard({ client, config, getPlayer, play, action }) {
+  const manager = await createUserManager(config);
   const server = createServer(async (request, response) => {
     const url = new URL(request.url ?? "/", "http://localhost");
     const path = url.pathname;
@@ -102,18 +113,58 @@ export function startDashboard({ client, config, getPlayer, play, action }) {
     if (request.method === "POST" && path === "/api/login") {
       try {
         const body = await readBody(request);
-        if (!safeEqual(body.username, config.dashboard.user) || !safeEqual(body.password, config.dashboard.password)) {
+        const found = manager.find(body.username);
+        if (!found || !await manager.verifyPassword(body.password, found.passwordHash)) {
           return sendJson(response, 401, { error: "Kullanıcı adı veya parola hatalı." });
         }
         const token = randomBytes(32).toString("hex");
-        sessions.set(token, { createdAt: Date.now() });
-        return sendJson(response, 200, { token });
+        sessions.set(token, { userId: found.id, createdAt: Date.now() });
+        return sendJson(response, 200, { token, user: manager.public(found) });
       } catch (error) {
         return sendJson(response, 400, { error: error.message });
       }
     }
 
-    if (!authSession(request)) return sendJson(response, 401, { error: "Oturum gerekli." });
+    const user = authSession(request, config, manager);
+    if (!user) return sendJson(response, 401, { error: "Oturum gerekli." });
+
+    if (request.method === "POST" && path === "/api/logout") {
+      sessions.delete(String(request.headers.authorization ?? "").slice(7));
+      return sendJson(response, 200, { message: "Çıkış yapıldı." });
+    }
+
+    try {
+      const userRoute = userApi(manager, request, response, path, user);
+      if (userRoute.handled) {
+        if (userRoute.result) return sendJson(response, 200, userRoute.result);
+        if (userRoute.kind === "password") {
+          const body = await readBody(request);
+          await manager.changePassword(user, body.currentPassword, body.newPassword);
+          return sendJson(response, 200, { message: "Parolan değiştirildi." });
+        }
+        if (userRoute.kind === "admin-users") {
+          if (request.method === "GET" && path === "/api/users") {
+            return sendJson(response, 200, { users: manager.users().map(manager.public) });
+          }
+          if (request.method === "POST" && path === "/api/users") {
+            return sendJson(response, 201, { user: manager.public(await manager.create(await readBody(request))) });
+          }
+          const userMatch = path.match(/^\/api\/users\/([^/]+)$/);
+          const target = userMatch ? manager.findById(userMatch[1]) : null;
+          if (!target) return sendJson(response, 404, { error: "Kullanıcı bulunamadı." });
+          if (request.method === "PATCH") {
+            return sendJson(response, 200, { user: manager.public(await manager.update(target, await readBody(request))) });
+          }
+          if (request.method === "DELETE") {
+            await manager.remove(target, user);
+            return sendJson(response, 200, { message: "Kullanıcı silindi." });
+          }
+        }
+        return sendJson(response, 404, { error: "API yolu bulunamadı." });
+      }
+    } catch (error) {
+      return sendJson(response, Number(error.status) || 400, { error: error.message });
+    }
 
     if (request.method === "GET" && path === "/api/guilds") {
       return sendJson(response, 200, {
@@ -146,6 +197,7 @@ export function startDashboard({ client, config, getPlayer, play, action }) {
 
     if (request.method === "POST" && resource === "play") {
       try {
+        if (!["admin", "operator"].includes(user.role)) return sendJson(response, 403, { error: "Bu işlem için yetkin yok." });
         const body = await readBody(request);
         return sendJson(response, 200, await play(guild, body));
       } catch (error) {
@@ -155,6 +207,7 @@ export function startDashboard({ client, config, getPlayer, play, action }) {
 
     if (request.method === "POST" && resource === "action") {
       try {
+        if (!["admin", "operator"].includes(user.role)) return sendJson(response, 403, { error: "Bu işlem için yetkin yok." });
         const body = await readBody(request);
         return sendJson(response, 200, await action(guild, body));
       } catch (error) {

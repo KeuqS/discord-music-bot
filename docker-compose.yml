@@ -9,4 +9,6 @@ services:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
     environment:
       LAVALINK_SERVER_PASSWORD: ${LAVALINK_PASSWORD:?Set LAVALINK_PASSWORD in your .env file}
+      SPOTIFY_CLIENT_ID: ${SPOTIFY_CLIENT_ID:-}
+      SPOTIFY_CLIENT_SECRET: ${SPOTIFY_CLIENT_SECRET:-}
       _JAVA_OPTIONS: -Xmx1G
