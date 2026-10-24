@@ -7,6 +7,7 @@ Discord.js ve Lavalink v4 tabanlı bir Discord müzik botu MVP'si.
 - Slash komutları: `/play`, `/pause`, `/resume`, `/skip`, `/stop`, `/queue`, `/volume`
 - Sunucu başına bağımsız müzik kuyruğu
 - Lavalink bağlantısı ve otomatik sonraki parçaya geçiş
+- YouTube arama ve bağlantıları için Lavalink YouTube Source eklentisi
 - Ses komutlarında botun bulunduğu ses kanalını doğrulama
 - Docker ile Lavalink çalıştırma ve GitHub Actions ile JavaScript sözdizimi kontrolü
 
@@ -108,7 +109,7 @@ Botu önce boş veya özel bir test sunucusunda dene:
 
 ## Müzik kaynakları
 
-Dahil edilen Lavalink yapılandırmasında SoundCloud araması etkin; YouTube kaynağı kapalı. Bu nedenle YouTube araması veya YouTube bağlantılarının çalışacağı garanti edilmez. Başka kaynakları açmadan önce Lavalink için güncel, uyumlu eklentiyi ve ilgili hizmetin kullanım koşullarını kontrol et. Spotify veya Apple Music gibi servislerden içerik çekildiğini varsayma.
+Dahil edilen Lavalink yapılandırmasında SoundCloud ve YouTube araması etkindir. YouTube için Lavalink'in güncel `youtube-source` eklentisi kullanılır; YouTube tarafındaki geçici kısıtlamalar veya bot doğrulaması nedeniyle her bağlantının her zaman çalışacağı garanti edilemez. Spotify veya Apple Music gibi servislerden içerik çekildiğini varsayma.
 
 ## Sorun giderme
 
