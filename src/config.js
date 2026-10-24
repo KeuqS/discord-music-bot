@@ -1,9 +1,19 @@
 import "dotenv/config";
 
 function required(name) {
-  const value = process.env[name];
+  const value = process.env[name]?.trim();
   if (!value) throw new Error(`Missing required environment variable: ${name}`);
   return value;
+}
+
+const lavalinkPassword = required("LAVALINK_PASSWORD");
+if (lavalinkPassword === "youshallnotpass") {
+  throw new Error("LAVALINK_PASSWORD is the insecure example value. Set a unique secret in .env.");
+}
+
+const lavalinkPort = Number(process.env.LAVALINK_PORT ?? 2333);
+if (!Number.isInteger(lavalinkPort) || lavalinkPort < 1 || lavalinkPort > 65535) {
+  throw new Error("LAVALINK_PORT must be a valid TCP port (1-65535).");
 }
 
 export const config = {
@@ -12,8 +22,8 @@ export const config = {
   guildId: process.env.GUILD_ID,
   lavalink: {
     host: process.env.LAVALINK_HOST ?? "localhost",
-    port: Number(process.env.LAVALINK_PORT ?? 2333),
-    password: process.env.LAVALINK_PASSWORD ?? "youshallnotpass",
+    port: lavalinkPort,
+    password: lavalinkPassword,
     secure: process.env.LAVALINK_SECURE === "true",
     searchPlatform: process.env.LAVALINK_SEARCH_PLATFORM ?? "scsearch",
   },
