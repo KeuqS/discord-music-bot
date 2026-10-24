@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BeatWave Music Dashboard</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="glow glow-one"></div><div class="glow glow-two"></div>
+    <section id="loginView" class="login-shell">
+      <div class="brand-mark"><span>◒</span></div>
+      <p class="eyebrow">BEATWAVE MUSIC</p>
+      <h1>Sunucundaki müziği<br /><em>tek panelden yönet.</em></h1>
+      <p class="muted">Discord sunucunu seç, parçanı ara ve kuyruğu kontrol et.</p>
+      <form id="loginForm" class="login-card">
+        <label>Kullanıcı adı<input id="username" value="admin" autocomplete="username" /></label>
+        <label>Dashboard parolası<input id="password" type="password" autocomplete="current-password" required /></label>
+        <button class="primary" type="submit">Panele giriş yap <span>→</span></button>
+        <p id="loginError" class="error"></p>
+      </form>
+    </section>
+
+    <main id="appView" class="app-shell hidden">
+      <header class="topbar">
+        <div class="brand"><div class="mini-mark">◒</div><div><strong>BeatWave</strong><small>Music Dashboard</small></div></div>
+        <div class="top-actions"><span id="connectionPill" class="pill">● Hazırlanıyor</span><button id="logoutButton" class="ghost">Çıkış</button></div>
+      </header>
+      <section class="content">
+        <div class="welcome-row"><div><p class="eyebrow">KONTROL MERKEZİ</p><h2>Şimdi ne çalıyor?</h2></div><select id="guildSelect" class="select"></select></div>
+        <div class="hero-grid">
+          <article class="now-card card"><div class="cover-art"><span>♫</span></div><div class="now-info"><span class="label">ŞİMDİ ÇALIYOR</span><h3 id="nowTitle">Henüz parça yok</h3><p id="nowAuthor" class="muted">Bir şarkı seçerek başlayalım.</p><div class="progress"><span></span></div><div class="time-row"><span id="nowTime">0:00</span><span id="nowDuration">0:00</span></div></div></article>
+          <article class="card stat-card"><span class="label">BOT DURUMU</span><div id="botStatus" class="status-big">Hazır</div><p class="muted">Lavalink bağlantısı ve ses kanalı durumu</p><div class="stat-line"><span>Ses kanalı</span><strong id="voiceStatus">Bağlı değil</strong></div><div class="stat-line"><span>Kuyruk</span><strong id="queueCount">0 parça</strong></div></article>
+        </div>
+        <div class="dashboard-grid">
+          <section class="card player-card"><div class="section-head"><div><span class="label">OYNATMA</span><h3>Yeni parça ekle</h3></div><span class="shortcut">Enter</span></div><form id="playForm" class="play-form"><input id="query" placeholder="Şarkı adı veya SoundCloud bağlantısı" required /><button class="primary" type="submit">Çal <span>▶</span></button></form><div class="channel-grid"><label>Ses kanalı<select id="voiceSelect" class="select"></select></label><label>Metin kanalı<select id="textSelect" class="select"></select></label></div><div class="control-row"><button data-action="pause" class="control">Ⅱ</button><button data-action="resume" class="control">▶</button><button data-action="skip" class="control">↠</button><button data-action="stop" class="control danger">■</button><label class="volume">Ses <input id="volume" type="range" min="0" max="100" value="80" /><span id="volumeValue">80%</span></label></div><p id="actionMessage" class="message"></p></section>
+          <section class="card queue-card"><div class="section-head"><div><span class="label">SIRADAKİLER</span><h3>Müzik kuyruğu</h3></div><span id="queueBadge" class="badge">0</span></div><div id="queueList" class="queue-list"><p class="empty">Kuyruk şu anda boş.</p></div></section>
+        </div>
+      </section>
+    </main>
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

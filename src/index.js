@@ -5,6 +5,7 @@ import {
 } from "discord.js";
 import { LavalinkManager } from "lavalink-client";
 import { config } from "./config.js";
+import { startDashboard } from "./dashboard-server.js";
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
@@ -80,6 +81,76 @@ async function ensurePlayer(interaction, channel) {
   }
   if (!player.connected) await player.connect();
   return player;
+}
+
+async function dashboardChannel(guild, channelId, kind) {
+  const channel = await guild.channels.fetch(channelId);
+  if (!channel || (kind === "voice" ? !channel.isVoiceBased?.() : !channel.isTextBased?.())) {
+    throw new Error(kind === "voice" ? "Geçerli bir ses kanalı seçmelisin." : "Geçerli bir metin kanalı seçmelisin.");
+  }
+  return channel;
+}
+
+async function playFromDashboard(guild, body) {
+  const query = String(body.query ?? "").trim();
+  if (!query) throw new Error("Bir şarkı adı veya bağlantı girmelisin.");
+
+  const voiceChannel = await dashboardChannel(guild, body.voiceChannelId, "voice");
+  if (!voiceChannel.joinable || !voiceChannel.speakable) {
+    throw new Error("Botun bu ses kanalına katılma veya konuşma izni yok.");
+  }
+
+  const textChannel = body.textChannelId
+    ? await dashboardChannel(guild, body.textChannelId, "text")
+    : [...guild.channels.cache.values()].find((channel) =>
+        channel?.isTextBased?.() && !channel?.isThread?.() && channel?.isSendable?.() !== false,
+      );
+  if (!textChannel) throw new Error("Bir metin kanalı seçmelisin.");
+
+  const player = getPlayer(guild.id) ?? client.lavalink.createPlayer({
+    guildId: guild.id,
+    voiceChannelId: voiceChannel.id,
+    textChannelId: textChannel.id,
+    selfDeaf: true,
+    volume: 80,
+  });
+  if (player.voiceChannelId && player.voiceChannelId !== voiceChannel.id) {
+    throw new Error("Bot şu anda başka bir ses kanalında kullanılıyor.");
+  }
+  if (player.textChannelId !== textChannel.id) player.textChannelId = textChannel.id;
+  if (!player.connected) await player.connect();
+
+  const isUrl = /^https?:\/\//i.test(query);
+  const result = await player.search(
+    isUrl ? { query } : { query, source: config.lavalink.searchPlatform },
+    client.user,
+  );
+  if (!result.tracks?.length) throw new Error("Bu aramayla eşleşen parça bulunamadı.");
+
+  const tracks = result.loadType === "playlist" ? result.tracks : [result.tracks[0]];
+  for (const track of tracks) player.queue.add(track);
+  const wasPlaying = Boolean(player.queue.current && (player.playing || player.paused));
+  if (!wasPlaying) await player.play();
+  return { message: wasPlaying ? "Kuyruğa eklendi." : "Oynatılıyor.", title: tracks[0].info?.title };
+}
+
+async function actionFromDashboard(guild, body) {
+  const player = getPlayer(guild.id);
+  const action = String(body.action ?? "");
+  if (action === "volume") {
+    const percent = Number(body.percent);
+    if (!player) throw new Error("Şu anda aktif bir oynatıcı yok.");
+    if (!Number.isInteger(percent) || percent < 0 || percent > 100) throw new Error("Ses seviyesi 0-100 arasında olmalı.");
+    await player.setVolume(percent);
+    return { message: `Ses seviyesi %${percent} yapıldı.` };
+  }
+  if (!player) throw new Error("Şu anda aktif bir oynatıcı yok.");
+  if (action === "pause") await player.pause(true);
+  else if (action === "resume") await player.pause(false);
+  else if (action === "skip") await player.skip();
+  else if (action === "stop") await player.destroy();
+  else throw new Error("Geçersiz oynatma işlemi.");
+  return { message: "İşlem uygulandı." };
 }
 
 async function handlePlay(interaction) {
@@ -182,6 +253,17 @@ client.on("raw", (payload) => client.lavalink.sendRawData(payload));
 client.once("ready", () => {
   client.lavalink.init({ ...client.user });
   console.log(`Logged in as ${client.user.tag}`);
+  if (config.dashboard.enabled && config.dashboard.password) {
+    startDashboard({
+      client,
+      config,
+      getPlayer,
+      play: playFromDashboard,
+      action: actionFromDashboard,
+    });
+  } else {
+    console.warn("Dashboard disabled: set DASHBOARD_PASSWORD to enable it.");
+  }
 });
 
 client.lavalink.on("trackStart", (player, track) => {
