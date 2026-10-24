@@ -28,6 +28,15 @@ else
   SPOTIFY_CLIENT_SECRET="${SPOTIFY_CLIENT_SECRET:-}"
 fi
 
+if [[ ! "${CLIENT_ID}" =~ ^[0-9]{17,20}$ ]]; then
+  echo "CLIENT_ID Discord Application ID olmalı ve yalnızca rakamlardan oluşmalı." >&2
+  exit 1
+fi
+if [[ -n "${GUILD_ID}" && ! "${GUILD_ID}" =~ ^[0-9]{17,20}$ ]]; then
+  echo "GUILD_ID Discord sunucu ID’si olmalı ve yalnızca rakamlardan oluşmalı. Spotify secret bu alana girilmez." >&2
+  exit 1
+fi
+
 if [[ -z "${DASHBOARD_PASSWORD:-}" ]]; then
   DASHBOARD_PASSWORD="$(openssl rand -hex 12)"
   GENERATED_DASHBOARD_PASSWORD=1
