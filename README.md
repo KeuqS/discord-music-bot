@@ -1,53 +1,125 @@
-# Discord Music Bot
+# BeatWave Music
 
-Discord.js ve Lavalink v4 tabanlı, Beatra benzeri bir müzik botu MVP'si.
+Discord.js ve Lavalink v4 tabanlı bir Discord müzik botu MVP'si.
 
 ## Özellikler
 
 - Slash komutları: `/play`, `/pause`, `/resume`, `/skip`, `/stop`, `/queue`, `/volume`
 - Sunucu başına bağımsız müzik kuyruğu
-- Lavalink node bağlantısı ve otomatik sonraki parçaya geçiş
-- Arama ve desteklenen kaynak URL'leri için tek `/play` akışı
-- Docker ile yerel Lavalink geliştirme ortamı
+- Lavalink bağlantısı ve otomatik sonraki parçaya geçiş
+- Ses komutlarında botun bulunduğu ses kanalını doğrulama
+- Docker ile Lavalink çalıştırma ve GitHub Actions ile JavaScript sözdizimi kontrolü
 
-## Kurulum
+> **Durum:** Bu proje henüz gerçek bir Discord sunucusunda uçtan uca doğrulanmış değildir. CI kontrollerinin geçmesi, Discord bağlantısını veya müzik kaynağını tek başına kanıtlamaz.
 
-1. Discord Developer Portal'dan bir bot oluştur ve token ile application ID'yi al.
-2. `.env.example` dosyasını `.env` olarak kopyala ve değerleri doldur.
-3. Bağımlılıkları kur:
+## Gereksinimler
 
-   ```bash
-   npm install
-   ```
+- Node.js 20 veya üzeri ve npm
+- Docker Desktop (Lavalink için)
+- Discord Developer Portal'da oluşturulmuş bir bot uygulaması
 
-4. Lavalink'i çalıştır. Örnek yapılandırma için `docker-compose.yml` ve `lavalink/application.yml` dosyalarına bak.
-5. Slash komutlarını kaydet:
+## 1. Discord botunu oluştur
 
-   ```bash
-   npm run deploy
-   ```
+1. [Discord Developer Portal](https://discord.com/developers/applications) üzerinden bir uygulama oluştur.
+2. **Bot** sekmesinden botu oluştur ve token'ını al. Token'ı kimseyle paylaşma ve GitHub'a yükleme.
+3. **OAuth2 → URL Generator** bölümünde `bot` ve `applications.commands` kapsamlarını seç.
+4. Bot izinlerinde en azından `View Channels`, `Connect`, `Speak`, `Send Messages` ve `Use Application Commands` izinlerini seç; oluşturulan URL ile botu test sunucuna ekle.
+5. Uygulamanın **Application ID** değerini kopyala.
 
-6. Botu başlat:
+Bot için privileged intent açılması gerekmez; uygulama sunucu ve ses durumu intent'lerini kullanır.
 
-   ```bash
-   npm start
-   ```
+## 2. Ortam değişkenlerini hazırla
 
-Varsayılan arama kaynağı `scsearch` (SoundCloud) olarak ayarlanmıştır. YouTube veya başka sağlayıcılar için Lavalink'e ilgili, kullanım koşullarına uygun source/plugin ekleyip `LAVALINK_SEARCH_PLATFORM` değerini değiştir.
+Depoyu bilgisayarına indir veya klonla, ardından proje klasöründe:
 
-## Discord izinleri
+```bash
+cp .env.example .env
+```
 
-Botun en azından `View Channel`, `Connect`, `Speak`, `Send Messages` ve `Use Application Commands` izinlerine ihtiyacı vardır.
+Windows PowerShell kullanıyorsan:
 
-## Kaynak ve telif notu
+```powershell
+Copy-Item .env.example .env
+```
 
-Lavalink source/plugin seçimini kullandığın platformların kullanım koşullarına ve gerekli lisanslara göre yapılandır. Spotify veya Apple Music gibi servislerin içeriklerini izinsiz yeniden yayınlama; bu MVP bağlantıları ve metadata eşleştirmesini platform kurallarına uygun şekilde genişletmek için tasarlanmıştır.
+`.env` dosyasına şu değerleri gir:
 
-## Sonraki adımlar
+- `DISCORD_TOKEN`: Discord bot token'ı
+- `CLIENT_ID`: Discord uygulamasının Application ID değeri
+- `GUILD_ID`: Komutları hızlıca test etmek istediğin sunucunun ID'si (isteğe bağlı; boş bırakılırsa komutlar global kaydedilir)
+- `LAVALINK_PASSWORD`: Kendine ait, uzun ve rastgele bir parola
 
-- Redis tabanlı kalıcı kuyruklar
-- Discord OAuth2 web paneli
-- Playlist ve favoriler
-- Lyrics sağlayıcısı
-- Çoklu Lavalink node ve yük dengeleme
-- Premium plan ve sunucu ayarları
+Aynı `LAVALINK_PASSWORD` değeri Docker Compose tarafından Lavalink'e aktarılır. Örnek parolayı kullanma. Örneğin parola üretmek için:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+Çıktıyı `.env` içindeki `LAVALINK_PASSWORD` alanına kopyala. Gerçek `.env` dosyanı veya bot token'ını GitHub'a gönderme.
+
+## 3. Bağımlılıkları kur
+
+```bash
+npm install
+npm run check
+```
+
+## 4. Lavalink'i başlat
+
+Docker Desktop'ın açık olduğundan emin ol. Proje kök dizininde:
+
+```bash
+docker compose up -d
+docker compose logs -f lavalink
+```
+
+Lavalink portu yalnızca yerel bilgisayara (`127.0.0.1:2333`) bağlanır; internetten doğrudan erişime açılmaz. Botu aynı bilgisayarda çalıştırıyorsan varsayılan `LAVALINK_HOST=localhost` ayarı uygundur.
+
+Lavalink loglarında başlangıç hatası görürsen botu başlatmadan önce parola ve yapılandırmayı kontrol et. Kapatmak için `docker compose down` kullanabilirsin.
+
+## 5. Slash komutlarını kaydet
+
+`.env` dosyası hazırken:
+
+```bash
+npm run deploy
+```
+
+Test sunucusu için `GUILD_ID` girmen komutların daha hızlı görünmesini sağlar. Boş bırakırsan global komutlar kaydedilir ve görünmeleri daha uzun sürebilir.
+
+## 6. Botu çalıştır
+
+```bash
+npm start
+```
+
+Terminalde botun giriş yaptığını ve Lavalink node bağlantısını kontrol et. Terminali kapatırsan bot durur.
+
+## 7. Test sırası
+
+Botu önce boş veya özel bir test sunucusunda dene:
+
+1. Botu ses kanalına katılabilir ve konuşabilir izinlerle ekle.
+2. Kendin bir ses kanalına katıl.
+3. `/play query: lo-fi` ile SoundCloud araması dene.
+4. `/queue`, `/pause`, `/resume`, `/volume percent: 50`, `/skip` ve `/stop` komutlarını sırayla test et.
+5. Botun olmadığı başka bir ses kanalından kontrol komutları kullanmayı dene; bot bu komutları reddetmelidir.
+6. Lavalink'i kapatıp bağlantı hatalarını gözlemle; sonra yeniden başlat.
+
+## Müzik kaynakları
+
+Dahil edilen Lavalink yapılandırmasında SoundCloud araması etkin; YouTube kaynağı kapalı. Bu nedenle YouTube araması veya YouTube bağlantılarının çalışacağı garanti edilmez. Başka kaynakları açmadan önce Lavalink için güncel, uyumlu eklentiyi ve ilgili hizmetin kullanım koşullarını kontrol et. Spotify veya Apple Music gibi servislerden içerik çekildiğini varsayma.
+
+## Sorun giderme
+
+- **Komutlar görünmüyor:** `npm run deploy` çalıştırıldığını, `CLIENT_ID` ve varsa `GUILD_ID` değerlerini kontrol et.
+- **Bot giriş yapmıyor:** Token'ın doğru ve yenilenmemiş olduğunu kontrol et.
+- **Lavalink bağlanmıyor:** Docker'ın çalıştığını, `docker compose logs -f lavalink` çıktısını ve iki taraftaki `LAVALINK_PASSWORD` değerinin aynı olduğunu kontrol et.
+- **Arama sonuçsuz:** SoundCloud kaynağının ve arama platformunun etkin olduğunu doğrula; Lavalink loglarına bak.
+- **Bot sesi duymuyor:** Botun `Connect` ve `Speak` izinlerini, kanal erişimini ve Lavalink bağlantısını kontrol et.
+
+## Güvenlik notları
+
+- `.env` ve Discord token'ını asla commit etme.
+- Lavalink portunu internete açma; uzaktaki bir sunucuda çalıştırırsan bot ile Lavalink'i özel bir ağda tut.
+- Token sızarsa Discord Developer Portal'dan yenile.
