@@ -1,8 +1,19 @@
 services:
+  yt-cipher:
+    image: ghcr.io/kikkia/yt-cipher:master
+    container_name: beatwave-yt-cipher
+    restart: unless-stopped
+    environment:
+      OVERRIDE_PLAYER_VARIANT: IAS
+    expose:
+      - "8001"
+
   lavalink:
     image: ghcr.io/lavalink-devs/lavalink:4
     container_name: discord-music-lavalink
     restart: unless-stopped
+    depends_on:
+      - yt-cipher
     ports:
       - "127.0.0.1:2333:2333"
     volumes:
