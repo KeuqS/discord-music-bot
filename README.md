@@ -19,6 +19,17 @@ Discord.js ve Lavalink v4 tabanlı bir Discord müzik botu MVP'si.
 - Docker Desktop (Lavalink için)
 - Discord Developer Portal'da oluşturulmuş bir bot uygulaması
 
+## Debian 12 VDS'ye tek script ile kurulum
+
+Temiz bir Debian 12 sunucuda root olarak aşağıdaki komutlar Docker, Lavalink, bot ve web panelini kurar. Script token, panel parolası ve isteğe bağlı Spotify bilgilerini GitHub'a yazmadan kurulum sırasında sorar:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KeuqS/discord-music-bot/main/install.sh -o install.sh
+bash install.sh
+```
+
+Kurulum tamamlandığında panel `http://SUNUCU_IP:3000` adresinde olur. Ticari kullanım öncesinde paneli alan adı ve HTTPS arkasına almak gerekir.
+
 ## 1. Discord botunu oluştur
 
 1. [Discord Developer Portal](https://discord.com/developers/applications) üzerinden bir uygulama oluştur.
