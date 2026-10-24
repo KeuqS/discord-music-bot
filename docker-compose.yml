@@ -4,8 +4,9 @@ services:
     container_name: discord-music-lavalink
     restart: unless-stopped
     ports:
-      - "2333:2333"
+      - "127.0.0.1:2333:2333"
     volumes:
       - ./lavalink/application.yml:/opt/Lavalink/application.yml:ro
     environment:
-      - _JAVA_OPTIONS=-Xmx1G
+      LAVALINK_SERVER_PASSWORD: ${LAVALINK_PASSWORD:?Set LAVALINK_PASSWORD in your .env file}
+      _JAVA_OPTIONS: -Xmx1G
