@@ -288,7 +288,39 @@ client.lavalink.on("trackStart", (player, track) => {
   });
 });
 
+client.lavalink.on("trackError", (player, track, payload) => {
+  const title = track?.info?.title ?? "Bilinmeyen parça";
+  const exception = payload?.exception ?? {};
+  console.error("Track error:", {
+    guildId: player.guildId,
+    title,
+    message: exception.message ?? payload?.message ?? "",
+    cause: exception.cause ?? payload?.cause ?? "",
+  });
+  const channel = client.channels.cache.get(player.textChannelId);
+  channel?.send(`⚠️ **${title}** oynatılamadı. Başka bir parça deneniyor.`).catch((error) => {
+    console.error("Could not send track error message:", error.message);
+  });
+});
+
+client.lavalink.on("trackStuck", (player, track, payload) => {
+  console.error("Track stuck:", {
+    guildId: player.guildId,
+    title: track?.info?.title ?? "Bilinmeyen parça",
+    thresholdMs: payload?.thresholdMs ?? 0,
+  });
+});
+
+client.lavalink.on("trackEnd", (player, track, payload) => {
+  console.log("Track ended:", {
+    guildId: player.guildId,
+    title: track?.info?.title ?? "Bilinmeyen parça",
+    reason: payload?.reason ?? "unknown",
+  });
+});
+
 client.lavalink.on("queueEnd", (player) => {
+  console.log(`Queue ended for guild ${player.guildId}; destroying player.`);
   const channel = client.channels.cache.get(player.textChannelId);
   channel?.send("Kuyruk tamamlandı. Yeni bir parça ekleyebilirsin.").catch((error) => {
     console.error("Could not send queue-end message:", error.message);
