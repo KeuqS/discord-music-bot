@@ -22,7 +22,7 @@ client.lavalink = new LavalinkManager({
   ],
   autoSkip: true,
   sendToShard: (guildId, payload) => client.guilds.cache.get(guildId)?.shard?.send(payload),
-  client: { id: config.clientId, username: "Discord Music Bot" },
+  client: { id: config.clientId, username: "BeatWave Music" },
   playerOptions: {
     defaultSearchPlatform: config.lavalink.searchPlatform,
     onDisconnect: { autoReconnect: true, destroyPlayer: false },
@@ -43,6 +43,19 @@ function requireVoiceChannel(interaction) {
     throw new Error("Botun bu ses kanalına katılma veya konuşma izni yok.");
   }
   return channel;
+}
+
+function requirePlayerInCallerChannel(interaction) {
+  const channel = requireVoiceChannel(interaction);
+  const player = getPlayer(interaction.guildId);
+
+  if (!player || !player.queue?.current) {
+    throw new Error("Şu anda oynatılan bir parça yok.");
+  }
+  if (player.voiceChannelId !== channel.id) {
+    throw new Error("Bu komutu botun bulunduğu ses kanalından kullanmalısın.");
+  }
+  return player;
 }
 
 function formatDuration(milliseconds = 0) {
@@ -72,6 +85,7 @@ async function ensurePlayer(interaction, channel) {
 async function handlePlay(interaction) {
   const channel = requireVoiceChannel(interaction);
   const query = interaction.options.getString("query", true).trim();
+  if (!query) throw new Error("Bir şarkı adı veya bağlantı girmelisin.");
   await interaction.deferReply();
 
   const player = await ensurePlayer(interaction, channel);
@@ -82,13 +96,13 @@ async function handlePlay(interaction) {
   );
 
   if (!result.tracks?.length) {
-    return interaction.editReply("Bu aramayla eşleşen parça bulunamadı.");
+    return interaction.editReply("Bu aramayla eşleşen parça bulunamadı. Kaynağın Lavalink üzerinde etkin olduğundan emin ol.");
   }
 
   const tracks = result.loadType === "playlist" ? result.tracks : [result.tracks[0]];
   for (const track of tracks) player.queue.add(track);
 
-  const wasPlaying = player.playing;
+  const wasPlaying = Boolean(player.queue.current && (player.playing || player.paused));
   if (!wasPlaying) await player.play();
 
   const first = tracks[0];
@@ -126,32 +140,34 @@ async function handleInteraction(interaction) {
     case "queue":
       return handleQueue(interaction);
     case "pause": {
-      const player = getPlayer(interaction.guildId);
-      if (!player) return interaction.reply("Şu anda oynatılan bir parça yok.");
+      const player = requirePlayerInCallerChannel(interaction);
+      if (player.paused) return interaction.reply("Parça zaten duraklatılmış.");
       await player.pause(true);
       return interaction.reply("⏸️ Duraklatıldı.");
     }
     case "resume": {
-      const player = getPlayer(interaction.guildId);
-      if (!player) return interaction.reply("Şu anda oynatılan bir parça yok.");
+      const player = requirePlayerInCallerChannel(interaction);
+      if (!player.paused) return interaction.reply("Parça zaten oynatılıyor.");
       await player.pause(false);
       return interaction.reply("▶️ Devam ediyor.");
     }
     case "skip": {
-      const player = getPlayer(interaction.guildId);
-      if (!player) return interaction.reply("Şu anda oynatılan bir parça yok.");
+      const player = requirePlayerInCallerChannel(interaction);
       await player.skip();
       return interaction.reply("⏭️ Sıradaki parçaya geçildi.");
     }
     case "stop": {
       const player = getPlayer(interaction.guildId);
       if (!player) return interaction.reply("Bot zaten ses kanalında değil.");
+      const channel = requireVoiceChannel(interaction);
+      if (player.voiceChannelId !== channel.id) {
+        throw new Error("Bu komutu botun bulunduğu ses kanalından kullanmalısın.");
+      }
       await player.destroy();
       return interaction.reply("⏹️ Oynatma durduruldu.");
     }
     case "volume": {
-      const player = getPlayer(interaction.guildId);
-      if (!player) return interaction.reply("Önce bir parça oynatmalısın.");
+      const player = requirePlayerInCallerChannel(interaction);
       const percent = interaction.options.getInteger("percent", true);
       await player.setVolume(percent);
       return interaction.reply(`🔊 Ses seviyesi: **%${percent}**`);
@@ -170,13 +186,19 @@ client.once("ready", () => {
 
 client.lavalink.on("trackStart", (player, track) => {
   const channel = client.channels.cache.get(player.textChannelId);
-  channel?.send(`🎶 Şimdi çalıyor: **${track.info.title}**`);
+  channel?.send(`🎶 Şimdi çalıyor: **${track.info.title}**`).catch((error) => {
+    console.error("Could not send track announcement:", error.message);
+  });
 });
 
 client.lavalink.on("queueEnd", (player) => {
   const channel = client.channels.cache.get(player.textChannelId);
-  channel?.send("Kuyruk tamamlandı. Yeni bir parça ekleyebilirsin.");
-  player.destroy();
+  channel?.send("Kuyruk tamamlandı. Yeni bir parça ekleyebilirsin.").catch((error) => {
+    console.error("Could not send queue-end message:", error.message);
+  });
+  player.destroy().catch((error) => {
+    console.error("Could not destroy idle player:", error.message);
+  });
 });
 
 client.lavalink.nodeManager.on("connect", (node) => {
@@ -194,15 +216,18 @@ client.on("interactionCreate", async (interaction) => {
     console.error(error);
     const message = error instanceof Error ? error.message : "Beklenmeyen bir hata oluştu.";
     if (interaction.deferred || interaction.replied) {
-      await interaction.editReply(`❌ ${message}`);
+      await interaction.editReply(`❌ ${message}`).catch(console.error);
     } else {
-      await interaction.reply({ content: `❌ ${message}`, ephemeral: true });
+      await interaction.reply({ content: `❌ ${message}`, ephemeral: true }).catch(console.error);
     }
   }
 });
 
-process.on("SIGINT", () => client.destroy());
-process.on("SIGTERM", () => client.destroy());
+process.on("SIGINT", () => {
+  client.destroy();
+});
+process.on("SIGTERM", () => {
+  client.destroy();
+});
 
 await client.login(config.token);
-
